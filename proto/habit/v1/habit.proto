@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package habit.v1;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/bhubhik/habit-tracker-api/pb/habit/v1;habitv1";
+
+message Habit {
+  string id = 1;
+  string name = 2;
+  string created_at = 3;
+  repeated string frequency = 4; // e.g. ['monday', 'tuesday']
+}
+
+message CreateHabitRequest {
+  string name = 1;
+  repeated string frequency = 2;
+}
+
+message GetHabitsRequest {}
+
+message GetHabitResponse {
+  repeated Habit habits = 1;
+}
+
+message UpdateHabitRequest {
+  string id = 1;
+  string name = 2;
+  repeated string frequency = 3;
+}
+
+message DeleteHabitRequest {
+  string id = 1;
+}
+
+service HabitService {
+  rpc CreateHabit(CreateHabitRequest) returns (Habit);
+  rpc GetHabits(GetHabitsRequest) returns (GetHabitResponse);
+  rpc UpdateHabit(UpdateHabitRequest) returns (Habit);
+  rpc DeleteHabit(DeleteHabitRequest) returns (google.protobuf.Empty);
+}
