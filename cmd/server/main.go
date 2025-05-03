@@ -1,9 +1,12 @@
 package main
 
 import (
+	"github.com/bhubhik/habit-tracker-api/internal/server/habit"
 	"github.com/bhubhik/habit-tracker-api/internal/server/hello"
-	pb "github.com/bhubhik/habit-tracker-api/pb/hello/v1"
+	habitpb "github.com/bhubhik/habit-tracker-api/pb/habit/v1"
+	hellopb "github.com/bhubhik/habit-tracker-api/pb/hello/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"log"
 	"net"
 )
@@ -15,7 +18,10 @@ func main() {
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterHelloServiceServer(s, &hello.HelloServer{})
+	habitpb.RegisterHabitServiceServer(s, &habit.HabitServiceServer{})
+	hellopb.RegisterHelloServiceServer(s, &hello.HelloServer{})
+
+	reflection.Register(s)
 
 	log.Println("gRPC server listening on :5001")
 	if err := s.Serve(lis); err != nil {
