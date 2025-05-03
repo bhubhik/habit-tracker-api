@@ -1,0 +1,14 @@
+# GraphQL schema example
+#
+# https://gqlgen.com/getting-started/
+
+type Habit {
+  id: ID!
+  name: String!
+  createdAt: String!
+  frequency: [String!]!
+}
+
+type Query {
+  habits: [Habit!]!
+}
