@@ -6,34 +6,44 @@ package graph
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/bhubhik/habit-tracker-api/graph/model"
 )
 
+// CreateHabit is the resolver for the createHabit field.
+func (r *mutationResolver) CreateHabit(ctx context.Context, name string, frequency []string) (*model.Habit, error) {
+	newHabit := &model.Habit{
+		ID:        "3",
+		Name:      "Biking",
+		CreatedAt: "2025-05-23",
+		Frequency: []string{"saturday", "sunday"},
+	}
+	return newHabit, nil
+}
+
 // Habits is the resolver for the habits field.
 func (r *queryResolver) Habits(ctx context.Context) ([]*model.Habit, error) {
-	panic(fmt.Errorf("not implemented: Habits - habits"))
+	return []*model.Habit{
+		{
+			ID:        "1",
+			Name:      "Read",
+			CreatedAt: "2025-05-01",
+			Frequency: []string{"monday", "tuesday"},
+		},
+		{
+			ID:        "2",
+			Name:      "Workout",
+			CreatedAt: "2025-05-03",
+			Frequency: []string{"saturday", "sunday", "tuesday"},
+		},
+	}, nil
 }
+
+// Mutation returns MutationResolver implementation.
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
-type queryResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: CreateTodo - createTodo"))
-}
-func (r *queryResolver) Todos(ctx context.Context) ([]*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: Todos - todos"))
-}
-func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 type mutationResolver struct{ *Resolver }
-*/
+type queryResolver struct{ *Resolver }

@@ -39,6 +39,7 @@ type Config struct {
 }
 
 type ResolverRoot interface {
+	Mutation() MutationResolver
 	Query() QueryResolver
 }
 
@@ -53,11 +54,18 @@ type ComplexityRoot struct {
 		Name      func(childComplexity int) int
 	}
 
+	Mutation struct {
+		CreateHabit func(childComplexity int, name string, frequency []string) int
+	}
+
 	Query struct {
 		Habits func(childComplexity int) int
 	}
 }
 
+type MutationResolver interface {
+	CreateHabit(ctx context.Context, name string, frequency []string) (*model.Habit, error)
+}
 type QueryResolver interface {
 	Habits(ctx context.Context) ([]*model.Habit, error)
 }
@@ -109,6 +117,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Habit.Name(childComplexity), true
 
+	case "Mutation.createHabit":
+		if e.complexity.Mutation.CreateHabit == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createHabit_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CreateHabit(childComplexity, args["name"].(string), args["frequency"].([]string)), true
+
 	case "Query.habits":
 		if e.complexity.Query.Habits == nil {
 			break
@@ -156,6 +176,21 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 			}
 
 			return &response
+		}
+	case ast.Mutation:
+		return func(ctx context.Context) *graphql.Response {
+			if !first {
+				return nil
+			}
+			first = false
+			ctx = graphql.WithUnmarshalerMap(ctx, inputUnmarshalMap)
+			data := ec._Mutation(ctx, opCtx.Operation.SelectionSet)
+			var buf bytes.Buffer
+			data.MarshalGQL(&buf)
+
+			return &graphql.Response{
+				Data: buf.Bytes(),
+			}
 		}
 
 	default:
@@ -223,6 +258,47 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // endregion ************************** generated!.gotpl **************************
 
 // region    ***************************** args.gotpl *****************************
+
+func (ec *executionContext) field_Mutation_createHabit_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := ec.field_Mutation_createHabit_argsName(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg0
+	arg1, err := ec.field_Mutation_createHabit_argsFrequency(ctx, rawArgs)
+	if err != nil {
+		return nil, err
+	}
+	args["frequency"] = arg1
+	return args, nil
+}
+func (ec *executionContext) field_Mutation_createHabit_argsName(
+	ctx context.Context,
+	rawArgs map[string]any,
+) (string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+	if tmp, ok := rawArgs["name"]; ok {
+		return ec.unmarshalNString2string(ctx, tmp)
+	}
+
+	var zeroVal string
+	return zeroVal, nil
+}
+
+func (ec *executionContext) field_Mutation_createHabit_argsFrequency(
+	ctx context.Context,
+	rawArgs map[string]any,
+) ([]string, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("frequency"))
+	if tmp, ok := rawArgs["frequency"]; ok {
+		return ec.unmarshalNString2ᚕstringᚄ(ctx, tmp)
+	}
+
+	var zeroVal []string
+	return zeroVal, nil
+}
 
 func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
@@ -519,6 +595,71 @@ func (ec *executionContext) fieldContext_Habit_frequency(_ context.Context, fiel
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type String does not have child fields")
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_createHabit(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_createHabit(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().CreateHabit(rctx, fc.Args["name"].(string), fc.Args["frequency"].([]string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Habit)
+	fc.Result = res
+	return ec.marshalNHabit2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐHabit(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_createHabit(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Habit_id(ctx, field)
+			case "name":
+				return ec.fieldContext_Habit_name(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Habit_createdAt(ctx, field)
+			case "frequency":
+				return ec.fieldContext_Habit_frequency(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Habit", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createHabit_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -2721,6 +2862,55 @@ func (ec *executionContext) _Habit(ctx context.Context, sel ast.SelectionSet, ob
 	return out
 }
 
+var mutationImplementors = []string{"Mutation"}
+
+func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, mutationImplementors)
+	ctx = graphql.WithFieldContext(ctx, &graphql.FieldContext{
+		Object: "Mutation",
+	})
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		innerCtx := graphql.WithRootFieldContext(ctx, &graphql.RootFieldContext{
+			Object: field.Name,
+			Field:  field,
+		})
+
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Mutation")
+		case "createHabit":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createHabit(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var queryImplementors = []string{"Query"}
 
 func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -3142,6 +3332,10 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNHabit2githubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐHabit(ctx context.Context, sel ast.SelectionSet, v model.Habit) graphql.Marshaler {
+	return ec._Habit(ctx, sel, &v)
 }
 
 func (ec *executionContext) marshalNHabit2ᚕᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐHabitᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Habit) graphql.Marshaler {

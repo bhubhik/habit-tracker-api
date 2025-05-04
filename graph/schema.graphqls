@@ -12,3 +12,7 @@ type Habit {
 type Query {
   habits: [Habit!]!
 }
+
+type Mutation {
+  createHabit(name: String!, frequency: [String!]!): Habit!
+}

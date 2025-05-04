@@ -9,5 +9,8 @@ type Habit struct {
 	Frequency []string `json:"frequency"`
 }
 
+type Mutation struct {
+}
+
 type Query struct {
 }
