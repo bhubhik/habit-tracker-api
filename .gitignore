@@ -1,3 +1,5 @@
 # Ignore generated gRPC code in bad paths
 /github.com
 pb/github.com
+.venv
+localstack
