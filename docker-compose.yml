@@ -9,4 +9,5 @@ services:
       - DEBUG=1
     volumes:
       - "./localstack:/var/lib/localstack"
+      - "./localstack-init.sh:/etc/localstack/init/ready.d/init.sh"
       - "/var/run/docker.sock:/var/run/docker.sock"
