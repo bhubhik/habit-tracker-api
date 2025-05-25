@@ -11,6 +11,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/bhubhik/habit-tracker-api/graph"
+	"github.com/bhubhik/habit-tracker-api/internal/worker"
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
@@ -22,6 +23,7 @@ func main() {
 		port = defaultPort
 	}
 
+	worker.Start()
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
 
 	srv.AddTransport(transport.Options{})
