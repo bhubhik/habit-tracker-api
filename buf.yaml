@@ -1,0 +1,8 @@
+version: v1
+lint:
+  use:
+   - DEFAULT
+build:
+  roots:
+    - proto
+
