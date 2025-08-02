@@ -3,19 +3,55 @@ syntax = "proto3";
 package habit.v1;
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/bhubhik/habit-tracker-api/pb/habit/v1;habitv1";
+
+service HabitService {
+  rpc CreateHabit(CreateHabitRequest) returns (Habit);
+  rpc GetHabits(GetHabitsRequest) returns (GetHabitResponse);
+  rpc UpdateHabit(UpdateHabitRequest) returns (Habit);
+  rpc DeleteHabit(DeleteHabitRequest) returns (google.protobuf.Empty);
+}
 
 message Habit {
   string id = 1;
   string name = 2;
-  string created_at = 3;
-  repeated string frequency = 4; // e.g. ['monday', 'tuesday']
+  google.protobuf.Timestamp created_at = 3;
+  repeated Recurrence recurrence = 4;
 }
 
 message CreateHabitRequest {
   string name = 1;
-  repeated string frequency = 2;
+  repeated Recurrence recurrence = 2;
+}
+
+message UpdateHabitRequest {
+  string id = 1;
+  string name = 2;
+  repeated Recurrence recurrence = 3;
+}
+
+// Intervals like "every 2 hours", "every 4 days"
+message FixedInterval {
+  uint32 every = 1;
+  TimeUnit unit = 2;
+}
+
+// Option to use weekdays too e.g. ["monday", "tuesday"]
+message WeekdaySchedule {
+  repeated Weekday days = 1;
+}
+
+message Recurrence {
+  oneof schedule {
+    FixedInterval fixed = 1;
+    WeekdaySchedule weekdays = 2;
+  }
+}
+
+message DeleteHabitRequest {
+  string id = 1;
 }
 
 message GetHabitsRequest {}
@@ -24,19 +60,21 @@ message GetHabitResponse {
   repeated Habit habits = 1;
 }
 
-message UpdateHabitRequest {
-  string id = 1;
-  string name = 2;
-  repeated string frequency = 3;
+enum TimeUnit {
+  TIME_UNIT_UNSPECIFIED = 0;
+  MINUTES = 1;
+  HOURS = 2;
+  DAYS = 3;
+  WEEKS = 4;
 }
 
-message DeleteHabitRequest {
-  string id = 1;
-}
-
-service HabitService {
-  rpc CreateHabit(CreateHabitRequest) returns (Habit);
-  rpc GetHabits(GetHabitsRequest) returns (GetHabitResponse);
-  rpc UpdateHabit(UpdateHabitRequest) returns (Habit);
-  rpc DeleteHabit(DeleteHabitRequest) returns (google.protobuf.Empty);
+enum Weekday {
+  WEEKDAY_UNSPECIFIED = 0;
+  MONDAY = 1;
+  TUESDAY = 2;
+  WEDNESDAY = 3;
+  THURSDAY = 4;
+  FRIDAY = 5;
+  SATURDAY = 6;
+  SUNDAY = 7;
 }
