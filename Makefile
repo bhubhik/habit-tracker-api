@@ -13,9 +13,9 @@ localstack:
 
 proto:
 	@echo "Generating protos"
-		protoc \
-		--go_out=. \
-		--go-grpc_out=. \
+	protoc -I proto \
+		--go_out=pb --go_opt=paths=source_relative \
+		--go-grpc_out=pb --go-grpc_opt=paths=source_relative \
 		proto/habit/v1/habit.proto
 
 run-grpc:
