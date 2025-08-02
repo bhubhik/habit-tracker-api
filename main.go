@@ -23,7 +23,7 @@ func main() {
 		port = defaultPort
 	}
 
-	worker.Start()
+	go worker.Start()
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
 
 	srv.AddTransport(transport.Options{})
