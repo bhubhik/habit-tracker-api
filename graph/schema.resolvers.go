@@ -11,12 +11,15 @@ import (
 )
 
 // CreateHabit is the resolver for the createHabit field.
-func (r *mutationResolver) CreateHabit(ctx context.Context, name string, frequency []string) (*model.Habit, error) {
+func (r *mutationResolver) CreateHabit(ctx context.Context, name string, recurrence []*model.RecurrenceInput) (*model.Habit, error) {
 	newHabit := &model.Habit{
 		ID:        "3",
 		Name:      "Biking",
 		CreatedAt: "2025-05-23",
-		Frequency: []string{"saturday", "sunday"},
+		Recurrence: []*model.Recurrence{
+			{Weekdays: &model.WeekdaySchedule{
+				Days: []*model.Weekday{weekdayPtr(model.WeekdayMonday)}},
+			}},
 	}
 	return newHabit, nil
 }
@@ -28,13 +31,15 @@ func (r *queryResolver) Habits(ctx context.Context) ([]*model.Habit, error) {
 			ID:        "1",
 			Name:      "Read",
 			CreatedAt: "2025-05-01",
-			Frequency: []string{"monday", "tuesday"},
+			Recurrence: []*model.Recurrence{
+				{Weekdays: &model.WeekdaySchedule{Days: []*model.Weekday{weekdayPtr(model.WeekdayMonday)}}}},
 		},
 		{
 			ID:        "2",
 			Name:      "Workout",
 			CreatedAt: "2025-05-03",
-			Frequency: []string{"saturday", "sunday", "tuesday"},
+			Recurrence: []*model.Recurrence{
+				{Weekdays: &model.WeekdaySchedule{Days: []*model.Weekday{weekdayPtr(model.WeekdayMonday)}}}},
 		},
 	}, nil
 }

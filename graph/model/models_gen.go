@@ -2,15 +2,174 @@
 
 package model
 
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"strconv"
+)
+
+type FixedInterval struct {
+	Every int32    `json:"every"`
+	Unit  TimeUnit `json:"unit"`
+}
+
+type FixedIntervalInput struct {
+	Every int32    `json:"every"`
+	Unit  TimeUnit `json:"unit"`
+}
+
 type Habit struct {
-	ID        string   `json:"id"`
-	Name      string   `json:"name"`
-	CreatedAt string   `json:"createdAt"`
-	Frequency []string `json:"frequency"`
+	ID         string        `json:"id"`
+	Name       string        `json:"name"`
+	CreatedAt  string        `json:"createdAt"`
+	Recurrence []*Recurrence `json:"recurrence"`
 }
 
 type Mutation struct {
 }
 
 type Query struct {
+}
+
+type Recurrence struct {
+	Fixed    *FixedInterval   `json:"fixed,omitempty"`
+	Weekdays *WeekdaySchedule `json:"weekdays,omitempty"`
+}
+
+type RecurrenceInput struct {
+	Fixed    *FixedIntervalInput   `json:"fixed,omitempty"`
+	Weekdays *WeekdayScheduleInput `json:"weekdays,omitempty"`
+}
+
+type WeekdaySchedule struct {
+	Days []*Weekday `json:"days"`
+}
+
+type WeekdayScheduleInput struct {
+	Days []*Weekday `json:"days"`
+}
+
+type TimeUnit string
+
+const (
+	TimeUnitMinutes TimeUnit = "MINUTES"
+	TimeUnitHours   TimeUnit = "HOURS"
+	TimeUnitDays    TimeUnit = "DAYS"
+	TimeUnitWeeks   TimeUnit = "WEEKS"
+)
+
+var AllTimeUnit = []TimeUnit{
+	TimeUnitMinutes,
+	TimeUnitHours,
+	TimeUnitDays,
+	TimeUnitWeeks,
+}
+
+func (e TimeUnit) IsValid() bool {
+	switch e {
+	case TimeUnitMinutes, TimeUnitHours, TimeUnitDays, TimeUnitWeeks:
+		return true
+	}
+	return false
+}
+
+func (e TimeUnit) String() string {
+	return string(e)
+}
+
+func (e *TimeUnit) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = TimeUnit(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid TimeUnit", str)
+	}
+	return nil
+}
+
+func (e TimeUnit) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *TimeUnit) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e TimeUnit) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+type Weekday string
+
+const (
+	WeekdayMonday    Weekday = "MONDAY"
+	WeekdayTuesday   Weekday = "TUESDAY"
+	WeekdayWednesday Weekday = "WEDNESDAY"
+	WeekdayThursday  Weekday = "THURSDAY"
+	WeekdayFriday    Weekday = "FRIDAY"
+	WeekdaySaturday  Weekday = "SATURDAY"
+	WeekdaySunday    Weekday = "SUNDAY"
+)
+
+var AllWeekday = []Weekday{
+	WeekdayMonday,
+	WeekdayTuesday,
+	WeekdayWednesday,
+	WeekdayThursday,
+	WeekdayFriday,
+	WeekdaySaturday,
+	WeekdaySunday,
+}
+
+func (e Weekday) IsValid() bool {
+	switch e {
+	case WeekdayMonday, WeekdayTuesday, WeekdayWednesday, WeekdayThursday, WeekdayFriday, WeekdaySaturday, WeekdaySunday:
+		return true
+	}
+	return false
+}
+
+func (e Weekday) String() string {
+	return string(e)
+}
+
+func (e *Weekday) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = Weekday(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid Weekday", str)
+	}
+	return nil
+}
+
+func (e Weekday) MarshalGQL(w io.Writer) {
+	fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *Weekday) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e Weekday) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
 }

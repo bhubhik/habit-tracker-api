@@ -47,24 +47,38 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	FixedInterval struct {
+		Every func(childComplexity int) int
+		Unit  func(childComplexity int) int
+	}
+
 	Habit struct {
-		CreatedAt func(childComplexity int) int
-		Frequency func(childComplexity int) int
-		ID        func(childComplexity int) int
-		Name      func(childComplexity int) int
+		CreatedAt  func(childComplexity int) int
+		ID         func(childComplexity int) int
+		Name       func(childComplexity int) int
+		Recurrence func(childComplexity int) int
 	}
 
 	Mutation struct {
-		CreateHabit func(childComplexity int, name string, frequency []string) int
+		CreateHabit func(childComplexity int, name string, recurrence []*model.RecurrenceInput) int
 	}
 
 	Query struct {
 		Habits func(childComplexity int) int
 	}
+
+	Recurrence struct {
+		Fixed    func(childComplexity int) int
+		Weekdays func(childComplexity int) int
+	}
+
+	WeekdaySchedule struct {
+		Days func(childComplexity int) int
+	}
 }
 
 type MutationResolver interface {
-	CreateHabit(ctx context.Context, name string, frequency []string) (*model.Habit, error)
+	CreateHabit(ctx context.Context, name string, recurrence []*model.RecurrenceInput) (*model.Habit, error)
 }
 type QueryResolver interface {
 	Habits(ctx context.Context) ([]*model.Habit, error)
@@ -89,19 +103,26 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	_ = ec
 	switch typeName + "." + field {
 
+	case "FixedInterval.every":
+		if e.complexity.FixedInterval.Every == nil {
+			break
+		}
+
+		return e.complexity.FixedInterval.Every(childComplexity), true
+
+	case "FixedInterval.unit":
+		if e.complexity.FixedInterval.Unit == nil {
+			break
+		}
+
+		return e.complexity.FixedInterval.Unit(childComplexity), true
+
 	case "Habit.createdAt":
 		if e.complexity.Habit.CreatedAt == nil {
 			break
 		}
 
 		return e.complexity.Habit.CreatedAt(childComplexity), true
-
-	case "Habit.frequency":
-		if e.complexity.Habit.Frequency == nil {
-			break
-		}
-
-		return e.complexity.Habit.Frequency(childComplexity), true
 
 	case "Habit.id":
 		if e.complexity.Habit.ID == nil {
@@ -117,6 +138,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Habit.Name(childComplexity), true
 
+	case "Habit.recurrence":
+		if e.complexity.Habit.Recurrence == nil {
+			break
+		}
+
+		return e.complexity.Habit.Recurrence(childComplexity), true
+
 	case "Mutation.createHabit":
 		if e.complexity.Mutation.CreateHabit == nil {
 			break
@@ -127,7 +155,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.complexity.Mutation.CreateHabit(childComplexity, args["name"].(string), args["frequency"].([]string)), true
+		return e.complexity.Mutation.CreateHabit(childComplexity, args["name"].(string), args["recurrence"].([]*model.RecurrenceInput)), true
 
 	case "Query.habits":
 		if e.complexity.Query.Habits == nil {
@@ -136,6 +164,27 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Query.Habits(childComplexity), true
 
+	case "Recurrence.fixed":
+		if e.complexity.Recurrence.Fixed == nil {
+			break
+		}
+
+		return e.complexity.Recurrence.Fixed(childComplexity), true
+
+	case "Recurrence.weekdays":
+		if e.complexity.Recurrence.Weekdays == nil {
+			break
+		}
+
+		return e.complexity.Recurrence.Weekdays(childComplexity), true
+
+	case "WeekdaySchedule.days":
+		if e.complexity.WeekdaySchedule.Days == nil {
+			break
+		}
+
+		return e.complexity.WeekdaySchedule.Days(childComplexity), true
+
 	}
 	return 0, false
 }
@@ -143,7 +192,11 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
-	inputUnmarshalMap := graphql.BuildUnmarshalerMap()
+	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputFixedIntervalInput,
+		ec.unmarshalInputRecurrenceInput,
+		ec.unmarshalInputWeekdayScheduleInput,
+	)
 	first := true
 
 	switch opCtx.Operation.Operation {
@@ -267,11 +320,11 @@ func (ec *executionContext) field_Mutation_createHabit_args(ctx context.Context,
 		return nil, err
 	}
 	args["name"] = arg0
-	arg1, err := ec.field_Mutation_createHabit_argsFrequency(ctx, rawArgs)
+	arg1, err := ec.field_Mutation_createHabit_argsRecurrence(ctx, rawArgs)
 	if err != nil {
 		return nil, err
 	}
-	args["frequency"] = arg1
+	args["recurrence"] = arg1
 	return args, nil
 }
 func (ec *executionContext) field_Mutation_createHabit_argsName(
@@ -287,16 +340,16 @@ func (ec *executionContext) field_Mutation_createHabit_argsName(
 	return zeroVal, nil
 }
 
-func (ec *executionContext) field_Mutation_createHabit_argsFrequency(
+func (ec *executionContext) field_Mutation_createHabit_argsRecurrence(
 	ctx context.Context,
 	rawArgs map[string]any,
-) ([]string, error) {
-	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("frequency"))
-	if tmp, ok := rawArgs["frequency"]; ok {
-		return ec.unmarshalNString2ᚕstringᚄ(ctx, tmp)
+) ([]*model.RecurrenceInput, error) {
+	ctx = graphql.WithPathContext(ctx, graphql.NewPathWithField("recurrence"))
+	if tmp, ok := rawArgs["recurrence"]; ok {
+		return ec.unmarshalNRecurrenceInput2ᚕᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐRecurrenceInputᚄ(ctx, tmp)
 	}
 
-	var zeroVal []string
+	var zeroVal []*model.RecurrenceInput
 	return zeroVal, nil
 }
 
@@ -422,6 +475,94 @@ func (ec *executionContext) field___Type_fields_argsIncludeDeprecated(
 // endregion ************************** directives.gotpl **************************
 
 // region    **************************** field.gotpl *****************************
+
+func (ec *executionContext) _FixedInterval_every(ctx context.Context, field graphql.CollectedField, obj *model.FixedInterval) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FixedInterval_every(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Every, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FixedInterval_every(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FixedInterval",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _FixedInterval_unit(ctx context.Context, field graphql.CollectedField, obj *model.FixedInterval) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_FixedInterval_unit(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Unit, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(model.TimeUnit)
+	fc.Result = res
+	return ec.marshalNTimeUnit2githubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐTimeUnit(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_FixedInterval_unit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "FixedInterval",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type TimeUnit does not have child fields")
+		},
+	}
+	return fc, nil
+}
 
 func (ec *executionContext) _Habit_id(ctx context.Context, field graphql.CollectedField, obj *model.Habit) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Habit_id(ctx, field)
@@ -555,8 +696,8 @@ func (ec *executionContext) fieldContext_Habit_createdAt(_ context.Context, fiel
 	return fc, nil
 }
 
-func (ec *executionContext) _Habit_frequency(ctx context.Context, field graphql.CollectedField, obj *model.Habit) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Habit_frequency(ctx, field)
+func (ec *executionContext) _Habit_recurrence(ctx context.Context, field graphql.CollectedField, obj *model.Habit) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Habit_recurrence(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -569,7 +710,7 @@ func (ec *executionContext) _Habit_frequency(ctx context.Context, field graphql.
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Frequency, nil
+		return obj.Recurrence, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -581,19 +722,25 @@ func (ec *executionContext) _Habit_frequency(ctx context.Context, field graphql.
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]string)
+	res := resTmp.([]*model.Recurrence)
 	fc.Result = res
-	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
+	return ec.marshalNRecurrence2ᚕᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐRecurrence(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Habit_frequency(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Habit_recurrence(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Habit",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
+			switch field.Name {
+			case "fixed":
+				return ec.fieldContext_Recurrence_fixed(ctx, field)
+			case "weekdays":
+				return ec.fieldContext_Recurrence_weekdays(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Recurrence", field.Name)
 		},
 	}
 	return fc, nil
@@ -613,7 +760,7 @@ func (ec *executionContext) _Mutation_createHabit(ctx context.Context, field gra
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateHabit(rctx, fc.Args["name"].(string), fc.Args["frequency"].([]string))
+		return ec.resolvers.Mutation().CreateHabit(rctx, fc.Args["name"].(string), fc.Args["recurrence"].([]*model.RecurrenceInput))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -644,8 +791,8 @@ func (ec *executionContext) fieldContext_Mutation_createHabit(ctx context.Contex
 				return ec.fieldContext_Habit_name(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Habit_createdAt(ctx, field)
-			case "frequency":
-				return ec.fieldContext_Habit_frequency(ctx, field)
+			case "recurrence":
+				return ec.fieldContext_Habit_recurrence(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Habit", field.Name)
 		},
@@ -709,8 +856,8 @@ func (ec *executionContext) fieldContext_Query_habits(_ context.Context, field g
 				return ec.fieldContext_Habit_name(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Habit_createdAt(ctx, field)
-			case "frequency":
-				return ec.fieldContext_Habit_frequency(ctx, field)
+			case "recurrence":
+				return ec.fieldContext_Habit_recurrence(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Habit", field.Name)
 		},
@@ -844,6 +991,142 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 				return ec.fieldContext___Schema_directives(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type __Schema", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Recurrence_fixed(ctx context.Context, field graphql.CollectedField, obj *model.Recurrence) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Recurrence_fixed(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Fixed, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.FixedInterval)
+	fc.Result = res
+	return ec.marshalOFixedInterval2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐFixedInterval(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Recurrence_fixed(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Recurrence",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "every":
+				return ec.fieldContext_FixedInterval_every(ctx, field)
+			case "unit":
+				return ec.fieldContext_FixedInterval_unit(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type FixedInterval", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Recurrence_weekdays(ctx context.Context, field graphql.CollectedField, obj *model.Recurrence) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Recurrence_weekdays(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Weekdays, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.WeekdaySchedule)
+	fc.Result = res
+	return ec.marshalOWeekdaySchedule2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐWeekdaySchedule(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Recurrence_weekdays(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Recurrence",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "days":
+				return ec.fieldContext_WeekdaySchedule_days(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type WeekdaySchedule", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _WeekdaySchedule_days(ctx context.Context, field graphql.CollectedField, obj *model.WeekdaySchedule) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_WeekdaySchedule_days(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Days, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.Weekday)
+	fc.Result = res
+	return ec.marshalNWeekday2ᚕᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐWeekday(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_WeekdaySchedule_days(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "WeekdaySchedule",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Weekday does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2800,6 +3083,101 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputFixedIntervalInput(ctx context.Context, obj any) (model.FixedIntervalInput, error) {
+	var it model.FixedIntervalInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"every", "unit"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "every":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("every"))
+			data, err := ec.unmarshalNInt2int32(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Every = data
+		case "unit":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("unit"))
+			data, err := ec.unmarshalNTimeUnit2githubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐTimeUnit(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Unit = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRecurrenceInput(ctx context.Context, obj any) (model.RecurrenceInput, error) {
+	var it model.RecurrenceInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"fixed", "weekdays"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "fixed":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("fixed"))
+			data, err := ec.unmarshalOFixedIntervalInput2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐFixedIntervalInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Fixed = data
+		case "weekdays":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("weekdays"))
+			data, err := ec.unmarshalOWeekdayScheduleInput2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐWeekdayScheduleInput(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Weekdays = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputWeekdayScheduleInput(ctx context.Context, obj any) (model.WeekdayScheduleInput, error) {
+	var it model.WeekdayScheduleInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"days"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "days":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("days"))
+			data, err := ec.unmarshalNWeekday2ᚕᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐWeekday(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Days = data
+		}
+	}
+
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -2807,6 +3185,50 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 // endregion ************************** interface.gotpl ***************************
 
 // region    **************************** object.gotpl ****************************
+
+var fixedIntervalImplementors = []string{"FixedInterval"}
+
+func (ec *executionContext) _FixedInterval(ctx context.Context, sel ast.SelectionSet, obj *model.FixedInterval) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, fixedIntervalImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FixedInterval")
+		case "every":
+			out.Values[i] = ec._FixedInterval_every(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "unit":
+			out.Values[i] = ec._FixedInterval_unit(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
 
 var habitImplementors = []string{"Habit"}
 
@@ -2834,8 +3256,8 @@ func (ec *executionContext) _Habit(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "frequency":
-			out.Values[i] = ec._Habit_frequency(ctx, field, obj)
+		case "recurrence":
+			out.Values[i] = ec._Habit_recurrence(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -2960,6 +3382,83 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___schema(ctx, field)
 			})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var recurrenceImplementors = []string{"Recurrence"}
+
+func (ec *executionContext) _Recurrence(ctx context.Context, sel ast.SelectionSet, obj *model.Recurrence) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, recurrenceImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Recurrence")
+		case "fixed":
+			out.Values[i] = ec._Recurrence_fixed(ctx, field, obj)
+		case "weekdays":
+			out.Values[i] = ec._Recurrence_weekdays(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var weekdayScheduleImplementors = []string{"WeekdaySchedule"}
+
+func (ec *executionContext) _WeekdaySchedule(ctx context.Context, sel ast.SelectionSet, obj *model.WeekdaySchedule) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, weekdayScheduleImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("WeekdaySchedule")
+		case "days":
+			out.Values[i] = ec._WeekdaySchedule_days(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3408,6 +3907,80 @@ func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.Selec
 	return res
 }
 
+func (ec *executionContext) unmarshalNInt2int32(ctx context.Context, v any) (int32, error) {
+	res, err := graphql.UnmarshalInt32(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNInt2int32(ctx context.Context, sel ast.SelectionSet, v int32) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalInt32(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) marshalNRecurrence2ᚕᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐRecurrence(ctx context.Context, sel ast.SelectionSet, v []*model.Recurrence) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalORecurrence2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐRecurrence(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNRecurrenceInput2ᚕᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐRecurrenceInputᚄ(ctx context.Context, v any) ([]*model.RecurrenceInput, error) {
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.RecurrenceInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNRecurrenceInput2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐRecurrenceInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNRecurrenceInput2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐRecurrenceInput(ctx context.Context, v any) (*model.RecurrenceInput, error) {
+	res, err := ec.unmarshalInputRecurrenceInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -3424,14 +3997,24 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
-func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+func (ec *executionContext) unmarshalNTimeUnit2githubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐTimeUnit(ctx context.Context, v any) (model.TimeUnit, error) {
+	var res model.TimeUnit
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNTimeUnit2githubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐTimeUnit(ctx context.Context, sel ast.SelectionSet, v model.TimeUnit) graphql.Marshaler {
+	return v
+}
+
+func (ec *executionContext) unmarshalNWeekday2ᚕᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐWeekday(ctx context.Context, v any) ([]*model.Weekday, error) {
 	var vSlice []any
 	vSlice = graphql.CoerceList(v)
 	var err error
-	res := make([]string, len(vSlice))
+	res := make([]*model.Weekday, len(vSlice))
 	for i := range vSlice {
 		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		res[i], err = ec.unmarshalOWeekday2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐWeekday(ctx, vSlice[i])
 		if err != nil {
 			return nil, err
 		}
@@ -3439,17 +4022,40 @@ func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v
 	return res, nil
 }
 
-func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+func (ec *executionContext) marshalNWeekday2ᚕᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐWeekday(ctx context.Context, sel ast.SelectionSet, v []*model.Weekday) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
 	for i := range v {
-		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
-	}
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
 		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalOWeekday2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐWeekday(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
 	}
+	wg.Wait()
 
 	return ret
 }
@@ -3737,6 +4343,28 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
+func (ec *executionContext) marshalOFixedInterval2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐFixedInterval(ctx context.Context, sel ast.SelectionSet, v *model.FixedInterval) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._FixedInterval(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOFixedIntervalInput2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐFixedIntervalInput(ctx context.Context, v any) (*model.FixedIntervalInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFixedIntervalInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalORecurrence2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐRecurrence(ctx context.Context, sel ast.SelectionSet, v *model.Recurrence) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Recurrence(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {
 	if v == nil {
 		return nil, nil
@@ -3753,6 +4381,37 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	_ = ctx
 	res := graphql.MarshalString(*v)
 	return res
+}
+
+func (ec *executionContext) unmarshalOWeekday2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐWeekday(ctx context.Context, v any) (*model.Weekday, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(model.Weekday)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOWeekday2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐWeekday(ctx context.Context, sel ast.SelectionSet, v *model.Weekday) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
+}
+
+func (ec *executionContext) marshalOWeekdaySchedule2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐWeekdaySchedule(ctx context.Context, sel ast.SelectionSet, v *model.WeekdaySchedule) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._WeekdaySchedule(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOWeekdayScheduleInput2ᚖgithubᚗcomᚋbhubhikᚋhabitᚑtrackerᚑapiᚋgraphᚋmodelᚐWeekdayScheduleInput(ctx context.Context, v any) (*model.WeekdayScheduleInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputWeekdayScheduleInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

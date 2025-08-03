@@ -2,17 +2,65 @@
 #
 # https://gqlgen.com/getting-started/
 
-type Habit {
-  id: ID!
-  name: String!
-  createdAt: String!
-  frequency: [String!]!
-}
+scalar Timestamp
 
 type Query {
   habits: [Habit!]!
 }
 
 type Mutation {
-  createHabit(name: String!, frequency: [String!]!): Habit!
+  createHabit(name: String!, recurrence:[RecurrenceInput!]!): Habit!
 }
+
+type Habit {
+  id: ID!
+  name: String!
+  createdAt: String!
+  recurrence: [Recurrence]!
+}
+
+type Recurrence {
+  fixed: FixedInterval
+  weekdays: WeekdaySchedule
+}
+
+type FixedInterval{
+  every: Int!
+  unit: TimeUnit!
+}
+
+type WeekdaySchedule{
+  days: [Weekday]!
+}
+
+input RecurrenceInput {
+  fixed: FixedIntervalInput
+  weekdays: WeekdayScheduleInput
+}
+
+input FixedIntervalInput {
+  every: Int!
+  unit: TimeUnit!
+}
+
+input WeekdayScheduleInput {
+ days: [Weekday]! 
+}
+
+enum TimeUnit {
+  MINUTES
+  HOURS
+  DAYS
+  WEEKS
+}
+
+enum Weekday {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
